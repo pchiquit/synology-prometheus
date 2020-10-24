@@ -12,6 +12,10 @@ services:
     volumes:
       - ${PROMETHEUS_ROOT}/configs/grafana.ini:/etc/grafana/grafana.ini
       - ${PROMETHEUS_ROOT}/data/grafana:/var/lib/grafana
+    links:
+      - prometheus
+    depends_on:
+      - prometheus
 
   prometheus:
     image: prom/prometheus
@@ -20,11 +24,16 @@ services:
     links:
       - alertmanager
       - node-exporter
+      - telegraf
     ports:
       - "9090:9090"
     volumes:
       - ${PROMETHEUS_ROOT}/configs/prometheus.yml:/etc/prometheus/prometheus.yml
       - ${PROMETHEUS_ROOT}/data/prometheus:/prometheus
+    depends_on:
+      - telegraf
+      - node-exporter
+      - alertmanager
 
   alertmanager:
     image: prom/alertmanager
@@ -34,6 +43,8 @@ services:
       - "9093:9093"
     volumes:
       - ${PROMETHEUS_ROOT}/data/alertmanager:/alertmanager
+    depends_on:
+      - prometheus
 
   node-exporter:
     privileged: true
@@ -51,3 +62,18 @@ services:
       - "--path.sysfs=/host/sys"
       - "--collector.filesystem.ignored-mount-points"
       - "^/(rootfs/)?(dev|etc|host|proc|run|sys|volume1)($$|/)"
+      
+  # Define a Telegraf service
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    restart: always    
+    volumes:
+      - ${PROMETHEUS_ROOT}/data/mibs:/usr/share/snmp/mibs
+      - ${PROMETHEUS_ROOT}/configs/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      
+    ports:
+        - "8092:8092/udp"
+        - "8094:8094"
+        - "8125:8125/udp"
+  
